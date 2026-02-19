@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HealthAI - Medical Report Analyzer</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>
+                <div class="logo">🏥</div>
+                HealthAI
+            </h1>
+            <p>AI-Powered Medical Report Analysis</p>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Upload Section -->
+            <div class="card">
+                <h2><span class="icon">📁</span> Upload Medical Report</h2>
+                
+                <div class="upload-area" id="uploadArea">
+                    <div class="upload-icon">📤</div>
+                    <div class="upload-text">Click or drag files here</div>
+                    <div class="upload-subtext">Supported: PDF, PNG, JPG, TXT (Max 10MB)</div>
+                    <input type="file" id="fileInput" multiple accept=".pdf,.png,.jpg,.jpeg,.txt">
+                </div>
+
+                <div class="file-list" id="fileList"></div>
+
+                <div class="button-group">
+                    <button class="btn btn-primary" id="analyzeBtn" disabled>
+                        🔍 Analyze Report
+                    </button>
+                    <button class="btn btn-secondary" id="clearBtn" disabled>
+                        Clear Files
+                    </button>
+                </div>
+            </div>
+
+            <!-- Report Display Section -->
+            <div class="card">
+                <h2><span class="icon">📋</span> Report Analysis</h2>
+                
+                <div class="success-message" id="successMessage">
+                    ✓ Report analyzed successfully!
+                </div>
+
+                <div class="loading" id="loadingState">
+                    <div class="spinner"></div>
+                    <div class="loading-text">Analyzing your report...</div>
+                </div>
+
+                <div class="placeholder" id="placeholder">
+                    Upload and analyze a medical report to see results here
+                </div>
+
+                <div class="report-content" id="reportContent">
+
+                    <div class="report-tabs">
+                        <button class="tab-btn active" data-tab="summary">Summary</button>
+                        <button class="tab-btn" data-tab="report">Report</button>
+                        <button class="tab-btn" data-tab="findings">Key Findings</button>
+                    </div>
+
+                    <div class="tab-content active" id="summary">
+                        <h3>📊 Summary</h3>
+                        <div class="analysis-grid" id="metricsContainer"></div>
+                        <div style="margin-top:12px;" id="summaryText" class="text-content"></div>
+                    </div>
+
+                    <div class="tab-content" id="report">
+                        <h3>📄 Report</h3>
+                        <div class="text-content" id="reportView"></div>
+                    </div>
+
+                    <div class="tab-content" id="findings">
+                        <h3>🔍 Key Findings</h3>
+                        <ul class="findings-list" id="findingsList"></ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p>🔒 Your medical data is secure and encrypted. HealthAI © 2026</p>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
