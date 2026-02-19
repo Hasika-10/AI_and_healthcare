@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Medicine Reminder Bot</title>
+  <style>
+      :root{
+        /* Triadic color theme: three evenly spaced hues for vibrancy */
+        --bg-1: #fbfcff; /* soft neutral background */
+        --card-bg: #ffffff;
+        --accent: #3264A8; /* deep steel blue */
+        --accent-2: #A83264; /* rich rose */
+        --accent-3: #64A832; /* fresh green */
+        --muted: #4b5563; /* muted slate */
+        --success: #16a34a;
+      }
+      *{box-sizing:border-box}
+      body{
+        font-family: Inter, 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(180deg, #eaf2ff 0%, var(--bg-1) 100%);
+        margin:0; padding:0; min-height:100vh; color:#0f172a;
+        -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+      }
+      header{background:transparent; color:var(--accent); padding:28px 16px 0 16px; text-align:center}
+      header .title{font-size:28px; font-weight:700; margin:0;}
+      .page { max-width:1100px; margin:0 auto; padding:20px; }
+
+      /* Landing / initial choice */
+      #initial-choice{ padding:40px 18px; }
+      #initial-choice.landing{ min-height: calc(100vh - 0px); display:flex; align-items:center; justify-content:center }
+      .option-grid{ display:flex; gap:28px; justify-content:center; flex-wrap:wrap }
+      .option-card{ width:260px; background:var(--card-bg); border-radius:14px; padding:22px; box-shadow:0 8px 24px rgba(15,23,42,0.06); border:1px solid rgba(124,92,255,0.12); cursor:pointer; transition:transform .18s ease, box-shadow .18s ease }
+      .option-card:hover{ transform:translateY(-6px); box-shadow:0 20px 48px rgba(124,92,255,0.12); border-color:rgba(0,191,166,0.12) }
+      .option-card.disabled{ opacity:.5; cursor:not-allowed; transform:none; box-shadow:none }
+      .option-card h4{ margin:0 0 6px 0; font-size:18px }
+      .option-card p{ margin:0; color:var(--muted); font-size:14px }
+
+      /* Main frontend area */
+      section#frontend{ padding:22px 12px 80px 12px }
+      .card{ background:var(--card-bg); border-radius:12px; padding:18px; box-shadow:0 8px 20px rgba(2,6,23,0.04); border:1px solid rgba(2,6,23,0.04); max-width:700px; margin:8px auto; }
+      .form-row{ display:flex; gap:14px; align-items:flex-start; margin-top:12px }
+      .form-col{ flex:1; display:flex; flex-direction:column; gap:8px }
+      label.small{ font-size:13px; color:#0f172a; font-weight:600 }
+      input[type="text"], input[type="datetime-local"], input[type="number"], select, textarea{ padding:10px 12px; border-radius:8px; border:1px solid #e6e9ee; font-size:14px; background:#fff }
+      textarea{ min-height:120px }
+      .radio-group{ display:flex; gap:12px; align-items:center }
+      .controls{ display:flex; gap:12px; margin-top:14px }
+      .btn{ padding:10px 14px; border-radius:10px; border:none; cursor:pointer; font-weight:700 }
+      .btn-primary{ background:var(--accent); color:#fff; box-shadow:0 6px 18px rgba(124,92,255,0.12) }
+      .btn-primary:hover{ transform:translateY(-2px); filter:brightness(.98) }
+      .btn-secondary{ background:#f7fbfa; color:#0f172a; border:1px solid rgba(0,191,166,0.06) }
+      .muted{ color:var(--muted); font-size:13px }
+
+      /* Reminders list */
+      #reminders-list > div{ padding:12px 0; border-bottom:1px solid #f1f5f9; display:flex; justify-content:space-between; align-items:center }
+      #reminders-list strong{ display:block }
+
+      /* small utilities */
+      .controls .btn-secondary{ padding:8px 12px }
+      .landing-container{ max-width:900px; margin:8px auto; padding:8px }
+      .section-title{ text-align:center; margin-top:18px; font-size:18px }
+      #reminder-choice{ display:none; text-align:center }
+      /* when user opens reminder choices, hide the option cards and show stacked choices */
+      .choices-open .option-grid{ display:none }
+      #reminder-choice.under-reminder{ display:flex; flex-direction:column; gap:18px; align-items:center; margin-top:20px }
+      #reminder-choice.under-reminder .btn{ width:260px; padding:14px 18px; font-size:16px }
+      #parsed-results > div{ padding:6px 0 }
+      #parsed-results button{ margin-left:12px }
+      @media (max-width:800px){ .form-row{ flex-direction:column } .option-card{ width:100%; max-width:320px } }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="page"><h1 class="title">💊 Medicine Reminder</h1></div>
+</header>
+
+<!-- landing-only: initial options appear first; reminder UI appears after selection -->
+
+<!-- Initial choice: Report or Reminder -->
+<div id="initial-choice" class="landing-container">
+  <div class="option-grid">
+    <div id="opt-report" class="option-card disabled">
+      <h4>Report Generation</h4>
+      <div style="color:#666">Disabled for now</div>
+    </div>
+    <div id="opt-reminder" class="option-card">
+      <h4>Reminder</h4>
+      <div style="color:#666">Create medicine reminders</div>
+    </div>
+  </div>
+  <div id="reminder-choice">
+    <div class="choice-panel">
+      <button class="btn btn-primary" id="choose-manual">Manual tablets entry</button>
+      <button class="btn btn-primary" id="choose-prescription">Prescription upload</button>
+    </div>
+    <div>
+      <button class="btn btn-secondary" id="choice-back">Back</button>
+    </div>
+  </div>
+</div>
+
+<section id="frontend" style="display:none;">
+  <h3 class="section-title">Manual Entries</h3>
+  <div id="manual-form" class="card">
+    <div class="form-row">
+      <div class="form-col">
+        <label class="small">Medicine name</label>
+        <input type="text" id="manual-name" placeholder="e.g. Paracetamol">
+      </div>
+      <div class="form-col">
+        <label class="small">Tablets per dose</label>
+        <input type="number" id="manual-count" min="1" value="1">
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-col">
+        <label class="small">Start date &amp; time</label>
+        <input type="datetime-local" id="manual-start">
+      </div>
+      <div class="form-col">
+        <label class="small">Every (hours)</label>
+        <input type="number" id="manual-hours" min="1" value="8">
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-col">
+        <label class="small">Days to schedule</label>
+        <input type="number" id="manual-days" min="1" value="7">
+      </div>
+          <div class="form-col">
+            <label class="small">Reminder Type</label>
+            <div class="radio-group">
+              <label><input type="radio" name="manual-type" value="alarm" checked> Alarm</label>
+              <label><input type="radio" name="manual-type" value="notification"> Notification</label>
+            </div>
+            <div id="manual-tone-wrapper" style="margin-top:8px">
+              <label class="small">Tone</label>
+              <select id="manual-tone">
+                <option value="tone1">Tone 1</option>
+                <option value="tone2">Tone 2</option>
+                <option value="tone3">Tone 3</option>
+                <option value="none">No sound</option>
+              </select>
+            </div>
+          </div>
+    </div>
+
+    <div class="controls">
+      <button class="btn btn-primary" id="manual-create">Create Reminders</button>
+      <button class="btn btn-secondary" id="tone-preview">Preview Tone</button>
+    </div>
+  </div>
+
+  
+  <div id="prescription" class="card">
+    <textarea id="prescription-text" rows="6" placeholder="Paste prescription text here"></textarea>
+      <div class="controls">
+        <button class="btn btn-primary" id="parse-prescription">Parse</button>
+        <button class="btn btn-secondary" id="upload-prescription">Upload File</button>
+        <input type="file" id="prescription-file" accept="text/*" style="display:none">
+      </div>
+      <div class="form-row">
+        <div class="form-col">
+          <label class="small">Reminder Type for created items</label>
+          <div class="radio-group">
+            <label><input type="radio" name="presc-type" value="alarm" checked> Alarm</label>
+            <label><input type="radio" name="presc-type" value="notification"> Notification</label>
+          </div>
+        </div>
+        <div class="form-col">
+          <div id="presc-tone-wrapper">
+            <label class="small">Tone for created items</label>
+            <select id="presc-tone">
+              <option value="tone1">Tone 1</option>
+              <option value="tone2">Tone 2</option>
+              <option value="tone3">Tone 3</option>
+              <option value="none">No sound</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    <div id="parsed-results" class="parsed-results"></div>
+  </div>
+
+  
+  <div id="reminders-list" class="card"></div>
+</section>
+
+<audio id="preview-audio" hidden></audio>
+
+<!-- theme selector removed per request: using single triadic theme -->
+
+<script>
+  const API_BASE = 'http://localhost:3000';
+
+  // View helpers: control visibility of sections based on user choices
+  const initialChoiceEl = document.getElementById('initial-choice');
+  const reminderChoiceEl = document.getElementById('reminder-choice');
+  const frontendEl = document.getElementById('frontend');
+  const manualFormEl = document.getElementById('manual-form');
+  const prescriptionEl = document.getElementById('prescription');
+  const headerEl = document.querySelector('header');
+
+  function showInitial() {
+    // landing: hide header and show only the initial choice prominently
+    headerEl.style.display = 'none';
+    initialChoiceEl.style.display = '';
+    initialChoiceEl.classList.add('landing');
+    initialChoiceEl.classList.remove('choices-open');
+    reminderChoiceEl.classList.remove('under-reminder');
+    reminderChoiceEl.style.display = 'none';
+    frontendEl.style.display = 'none';
+    manualFormEl.style.display = 'none';
+    prescriptionEl.style.display = 'none';
+  }
+
+  function showReminderChoices() {
+    // show just the choice between manual / prescription, keep landing layout
+    headerEl.style.display = 'none';
+    initialChoiceEl.style.display = '';
+    initialChoiceEl.classList.add('landing');
+    // mark that choices are open so we hide the option-grid and show the stacked choices
+    initialChoiceEl.classList.add('choices-open');
+    reminderChoiceEl.classList.add('under-reminder');
+    reminderChoiceEl.style.display = '';
+    frontendEl.style.display = 'none';
+    manualFormEl.style.display = 'none';
+    prescriptionEl.style.display = 'none';
+  }
+
+  function showManual() {
+    // show main app and show manual form
+    headerEl.style.display = '';
+    initialChoiceEl.style.display = 'none';
+    initialChoiceEl.classList.remove('landing');
+    reminderChoiceEl.style.display = 'none';
+    frontendEl.style.display = '';
+    manualFormEl.style.display = '';
+    prescriptionEl.style.display = 'none';
+    document.getElementById('manual-name').focus();
+  }
+
+  function showPrescription() {
+    headerEl.style.display = '';
+    initialChoiceEl.style.display = 'none';
+    initialChoiceEl.classList.remove('landing');
+    reminderChoiceEl.style.display = 'none';
+    frontendEl.style.display = '';
+    manualFormEl.style.display = 'none';
+    prescriptionEl.style.display = '';
+    document.getElementById('prescription-text').focus();
+  }
+
+  // wire initial choice buttons
+  document.getElementById('opt-reminder').addEventListener('click', showReminderChoices);
+  document.getElementById('choose-manual').addEventListener('click', showManual);
+  document.getElementById('choose-prescription').addEventListener('click', showPrescription);
+  document.getElementById('choice-back').addEventListener('click', showInitial);
+
+  // start on initial view
+  showInitial();
+
+  // Tone preview (oscillator or uploaded file)
+  let audioCtx, osc;
+  function playTone(toneId) {
+    stopTone();
+    const freqs = { tone1: 880, tone2: 660, tone3: 440 };
+    const freq = freqs[toneId] || 880;
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    gain.gain.value = 0.06;
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    osc.start();
+  }
+  function stopTone() { try { if (osc) { osc.stop(); osc.disconnect(); osc = null; } } catch(e){} }
+  document.getElementById('tone-preview').addEventListener('click', () => {
+    const tone = document.getElementById('manual-tone').value || 'tone1';
+    playTone(tone);
+    setTimeout(stopTone, 1200);
+  });
+
+  // (single tone selector used for both alarm and notification)
+
+  // Manual create: compute occurrences and POST to backend
+  document.getElementById('manual-create').addEventListener('click', async () => {
+    const name = document.getElementById('manual-name').value.trim();
+    const count = parseInt(document.getElementById('manual-count').value, 10) || 1;
+    const start = document.getElementById('manual-start').value;
+    const hours = parseFloat(document.getElementById('manual-hours').value) || 8;
+    const days = parseInt(document.getElementById('manual-days').value, 10) || 7;
+    const type = document.querySelector('input[name="manual-type"]:checked')?.value || 'alarm';
+    const tone = document.getElementById('manual-tone').value || 'tone1';
+    if (!name || !start) return alert('Please provide medicine name and start time');
+    const startDate = new Date(start);
+    const occurrences = Math.ceil((days * 24) / hours);
+    const created = [];
+    for (let i = 0; i < occurrences; i++) {
+      const t = new Date(startDate.getTime() + i * hours * 3600 * 1000);
+      const body = { name: `${name} (${count} tablets)`, time: t.toISOString(), type, tone };
+      try {
+        const res = await fetch(`${API_BASE}/api/reminders`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+        if (res.ok) created.push(await res.json());
+      } catch (e) { console.error('create failed', e); }
+    }
+    alert(`Created ${created.length} reminders`);
+    fetchReminders();
+  });
+
+  // Prescription parsing
+  document.getElementById('parse-prescription').addEventListener('click', async () => {
+    const text = document.getElementById('prescription-text').value.trim();
+    if (!text) return alert('Paste prescription text first');
+    try {
+      const res = await fetch(`${API_BASE}/api/parse-prescription`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ text }) });
+      const data = await res.json();
+      showParsed(data.parsed || []);
+    } catch (e) { console.error(e); alert('Parse failed'); }
+  });
+
+  // upload prescription file
+  document.getElementById('upload-prescription').addEventListener('click', () => document.getElementById('prescription-file').click());
+  document.getElementById('prescription-file').addEventListener('change', (e) => {
+    const f = e.target.files[0]; if (!f) return; const reader = new FileReader();
+    reader.onload = () => { document.getElementById('prescription-text').value = reader.result; };
+    reader.readAsText(f);
+  });
+
+  function showParsed(parsed) {
+    const container = document.getElementById('parsed-results');
+    container.innerHTML = '';
+    if (!parsed.length) return container.innerText = 'No items parsed.';
+    parsed.forEach((p, idx) => {
+      const div = document.createElement('div');
+      div.style.padding = '6px 0';
+      div.innerHTML = `<strong>${p.name}</strong> — ${p.count || ''} ${p.everyHours ? `every ${p.everyHours}h` : p.atTime ? `at ${p.atTime}` : ''}`;
+      const createBtn = document.createElement('button'); createBtn.className = 'btn btn-primary'; createBtn.style.marginLeft='12px'; createBtn.innerText = 'Create';
+      div.appendChild(createBtn);
+      container.appendChild(div);
+      createBtn.addEventListener('click', async () => {
+        // create reminders client-side so we can include type/tone
+        const type = document.querySelector('input[name="presc-type"]:checked')?.value || 'alarm';
+        const tone = document.getElementById('presc-tone').value || 'tone1';
+        const days = parseInt(document.getElementById('manual-days')?.value || 7, 10) || 7;
+        const created = [];
+        if (p.everyHours) {
+          const occurrences = 7 * Math.ceil(24 / p.everyHours);
+          const base = new Date();
+          for (let i = 0; i < occurrences; i++) {
+            const time = new Date(base.getTime() + i * p.everyHours * 3600 * 1000);
+            const body = { name: p.name, time: time.toISOString(), type, tone };
+            try { const res = await fetch(`${API_BASE}/api/reminders`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) }); if (res.ok) created.push(await res.json()); } catch(e){console.error(e)}
+          }
+        } else if (p.atTime) {
+          const [hh, mm] = p.atTime.split(':').map(n=>parseInt(n,10));
+          const base = new Date();
+          for (let d=0; d<days; d++){
+            const dt = new Date(base); dt.setDate(dt.getDate()+d); dt.setHours(hh,mm,0,0);
+            const body = { name: p.name, time: dt.toISOString(), type, tone };
+            try { const res = await fetch(`${API_BASE}/api/reminders`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) }); if (res.ok) created.push(await res.json()); } catch(e){console.error(e)}
+          }
+        }
+        alert(`Created ${created.length} reminders`);
+        fetchReminders();
+      });
+    });
+  }
+
+  // Reminders list
+  async function fetchReminders() {
+    try {
+      const res = await fetch(`${API_BASE}/api/reminders`);
+      const list = await res.json();
+      const container = document.getElementById('reminders-list');
+      container.innerHTML = '';
+      if (!list.length) return container.innerText = 'No reminders scheduled.';
+      list.sort((a,b)=> new Date(a.time)-new Date(b.time)).forEach(r => {
+        const d = document.createElement('div');
+        d.style.display='flex'; d.style.justifyContent='space-between'; d.style.padding='8px 0'; d.style.borderBottom='1px solid #f0f0f0';
+        d.innerHTML = `<div><strong>${r.name}</strong><div style="font-size:0.95rem;color:#666">${new Date(r.time).toLocaleString()}</div></div>`;
+        const del = document.createElement('button'); del.className='btn btn-secondary'; del.innerText='Delete';
+        del.addEventListener('click', async ()=>{
+          if(!confirm('Delete this reminder?')) return; await fetch(`${API_BASE}/api/reminders/${r.id}`, { method:'DELETE' }); fetchReminders();
+        });
+        d.appendChild(del);
+        container.appendChild(d);
+      });
+    } catch (e) { console.error(e); document.getElementById('reminders-list').innerText = ''; }
+  }
+
+  // initial load
+  fetchReminders();
+
+  // Single triadic theme applied; theme selector removed per request
+</script>
+
+</body>
+</html>
